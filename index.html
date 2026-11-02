@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard Analisis Agraria & Kelautan</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Chart.js CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0f172a;
+            color: #f8fafc;
+        }
+        .glass-card {
+            background: rgba(30, 41, 59, 0.75);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: rgba(15, 23, 42, 0.6);
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: rgba(100, 116, 139, 0.5);
+            border-radius: 3px;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col bg-slate-900 text-slate-100 custom-scrollbar">
+
+    <!-- Header & Status Bar -->
+    <header class="glass-card sticky top-0 z-50 border-b border-slate-800 px-4 lg:px-8 py-3.5">
+        <div class="max-w-7xl mx-auto flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-700 flex items-center justify-center text-white font-bold text-xl shadow-lg shadow-emerald-500/20">
+                    <i class="fa-solid fa-chart-pie"></i>
+                </div>
+                <div>
+                    <h1 class="text-lg font-bold tracking-tight text-white flex items-center gap-2">
+                        Dashboard Analisis Agraria & Kelautan
+                        <span id="liveBadge" class="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span> Auto-Sync
+                        </span>
+                    </h1>
+                    <p class="text-xs text-slate-400" id="lastUpdateText">Terakhir diperbarui: Memuat data...</p>
+                </div>
+            </div>
+
+            <!-- Auto-Refresh Controls -->
+            <div class="flex items-center gap-3">
+                <div class="text-right hidden sm:block">
+                    <span class="text-[11px] text-slate-400 block">Pembaruan berikutnya:</span>
+                    <span id="timerText" class="text-xs font-mono font-semibold text-emerald-400">05:00</span>
+                </div>
+                <button id="btnRefresh" onclick="loadDashboardData(true)" class="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-medium transition flex items-center gap-2 shadow-sm active:scale-95">
+                    <i class="fa-solid fa-rotate-right" id="refreshIcon"></i> Refresh Data
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="flex-1 max-w-7xl w-full mx-auto p-4 lg:p-8 space-y-6">
+
+        <!-- Banner Info Tab -->
+        <div id="tabSourceBanner" class="p-4 rounded-2xl border border-slate-800 bg-slate-800/40 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs">
+            <div class="flex items-center gap-3">
+                <i class="fa-solid fa-layer-group text-teal-400 text-lg"></i>
+                <div>
+                    <span class="font-semibold text-slate-200">Tab Terdeteksi & Tergabung:</span>
+                    <span id="tabListBadge" class="text-slate-400 ml-1">Tabulasi</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Global Cascading Filters Bar -->
+        <section class="glass-card p-5 rounded-2xl border border-slate-800 space-y-4">
+            <div class="flex items-center justify-between">
+                <h2 class="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-2">
+                    <i class="fa-solid fa-filter text-emerald-400"></i> Filter Bertingkat (Cascading Filter)
+                </h2>
+                <div class="flex items-center gap-2">
+                    <span id="recordCountText" class="text-xs px-2.5 py-1 rounded-full bg-slate-800 border border-slate-700 text-slate-300 font-mono">0 Data Terfilter</span>
+                    <button onclick="resetFilters()" class="px-3 py-1 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-400 hover:text-white rounded-lg text-xs transition flex items-center gap-1.5" title="Reset Filter">
+                        <i class="fa-solid fa-arrow-rotate-left"></i> Reset
+                    </button>
+                </div>
+            </div>
+            
+            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 text-xs">
+                <div>
+                    <label class="block text-slate-400 mb-1">Sumber Tab</label>
+                    <select id="filterTab" onchange="onFilterChange('filterTab')" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-slate-200 focus:outline-none focus:border-emerald-500">
+                        <option value="ALL">Semua Tab</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-slate-400 mb-1 font-semibold text-emerald-400">Kabupaten</label>
+                    <select id="filterKabupaten" onchange="onFilterChange('filterKabupaten')" class="w-full bg-slate-900 border border-emerald-600/50 rounded-xl px-3 py-2 text-slate-200 focus:outline-none focus:border-emerald-500">
+                        <option value="ALL">Semua Kabupaten</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-slate-400 mb-1 font-semibold text-teal-400">Kecamatan</label>
+                    <select id="filterKecamatan" onchange="onFilterChange('filterKecamatan')" class="w-full bg-slate-900 border border-teal-600/50 rounded-xl px-3 py-2 text-slate-200 focus:outline-none focus:border-teal-500">
+                        <option value="ALL">Semua Kecamatan</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-slate-400 mb-1 font-semibold text-sky-400">Desa / Banjar</label>
+                    <select id="filterDesa" onchange="onFilterChange('filterDesa')" class="w-full bg-slate-900 border border-sky-600/50 rounded-xl px-3 py-2 text-slate-200 focus:outline-none focus:border-sky-500">
+                        <option value="ALL">Semua Desa</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-slate-400 mb-1">Jenis Usaha</label>
+                    <select id="filterJenisUsaha" onchange="onFilterChange('filterJenisUsaha')" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-slate-200 focus:outline-none focus:border-emerald-500">
+                        <option value="ALL">Semua Jenis Usaha</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-slate-400 mb-1">Jenis KUB</label>
+                    <select id="filterJenisKub" onchange="onFilterChange('filterJenisKub')" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-slate-200 focus:outline-none focus:border-emerald-500">
+                        <option value="ALL">Semua KUB</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-slate-400 mb-1">Komoditas Usaha</label>
+                    <select id="filterKomoditas" onchange="onFilterChange('filterKomoditas')" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-slate-200 focus:outline-none focus:border-emerald-500">
+                        <option value="ALL">Semua Komoditas</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-slate-400 mb-1 font-semibold text-purple-400">Model Pemberdayaan</label>
+                    <select id="filterModelPemberdayaan" onchange="onFilterChange('filterModelPemberdayaan')" class="w-full bg-slate-900 border border-purple-600/50 rounded-xl px-3 py-2 text-slate-200 focus:outline-none focus:border-purple-500">
+                        <option value="ALL">Semua Model</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-slate-400 mb-1">Asal Sertipikat</label>
+                    <select id="filterSertipikat" onchange="onFilterChange('filterSertipikat')" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-slate-200 focus:outline-none focus:border-emerald-500">
+                        <option value="ALL">Semua Skema</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-slate-400 mb-1">Kendala / HKM</label>
+                    <select id="filterHkm" onchange="onFilterChange('filterHkm')" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-slate-200 focus:outline-none focus:border-emerald-500">
+                        <option value="ALL">Semua Kendala</option>
+                    </select>
+                </div>
+                <div class="sm:col-span-2 md:col-span-1 lg:col-span-2">
+                    <label class="block text-slate-400 mb-1">Cari Kata Kunci</label>
+                    <div class="relative">
+                        <input type="text" id="searchInput" oninput="onFilterChange('searchInput')" placeholder="Nama, NIK, alamat..." class="w-full bg-slate-900 border border-slate-700 rounded-xl pl-8 pr-3 py-2 text-slate-200 focus:outline-none focus:border-emerald-500">
+                        <i class="fa-solid fa-magnifying-glass absolute left-2.5 top-2.5 text-slate-500"></i>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- KPI Cards Grid -->
+        <section class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+            <!-- Total Penerima -->
+            <div class="glass-card p-5 rounded-2xl border border-slate-800 relative overflow-hidden">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-xs text-slate-400 font-medium">Jumlah Penerima</span>
+                    <span class="w-8 h-8 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-sm">
+                        <i class="fa-solid fa-users"></i>
+                    </span>
+                </div>
+                <div class="text-2xl font-bold text-white mb-1" id="kpiTotalPenerima">0</div>
+                <p class="text-[11px] text-slate-400">Subjek terdaftar</p>
+            </div>
+
+            <!-- Total Luas & Rata-rata -->
+            <div class="glass-card p-5 rounded-2xl border border-slate-800 relative overflow-hidden">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-xs text-slate-400 font-medium">Total Luas Tanah</span>
+                    <span class="w-8 h-8 rounded-lg bg-amber-500/20 text-amber-400 flex items-center justify-center text-sm">
+                        <i class="fa-solid fa-vector-square"></i>
+                    </span>
+                </div>
+                <div class="text-2xl font-bold text-white mb-1" id="kpiTotalLuas">0 m²</div>
+                <p class="text-[11px] text-slate-400" id="kpiRataLuas">Rata-rata: 0 m² / subjek</p>
+            </div>
+
+            <!-- Total Penghasilan Th 1 -->
+            <div class="glass-card p-5 rounded-2xl border border-slate-800 relative overflow-hidden">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-xs text-slate-400 font-medium">Total Penghasilan Th 1</span>
+                    <span class="w-8 h-8 rounded-lg bg-teal-500/20 text-teal-400 flex items-center justify-center text-sm">
+                        <i class="fa-solid fa-sack-dollar"></i>
+                    </span>
+                </div>
+                <div class="text-2xl font-bold text-white mb-1" id="kpiTotalPenghasilan">Rp 0</div>
+                <p class="text-[11px] text-slate-400" id="kpiRataPenghasilan">Rata: Rp 0 | Median: Rp 0</p>
+            </div>
+
+            <!-- Kelompok KUB & Pendampingan -->
+            <div class="glass-card p-5 rounded-2xl border border-slate-800 relative overflow-hidden">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-xs text-slate-400 font-medium">KUB & Pendampingan</span>
+                    <span class="w-8 h-8 rounded-lg bg-purple-500/20 text-purple-400 flex items-center justify-center text-sm">
+                        <i class="fa-solid fa-handshake"></i>
+                    </span>
+                </div>
+                <div class="text-2xl font-bold text-white mb-1" id="kpiTotalKub">0 KUB</div>
+                <p class="text-[11px] text-slate-400" id="kpiPendampinganPct">Pendampingan: 0% lengkap</p>
+            </div>
+        </section>
+
+        <!-- Analytics Charts Grid 1 -->
+        <section class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <!-- Chart 1: Asal Sertipikat -->
+            <div class="glass-card p-5 rounded-2xl border border-slate-800">
+                <h3 class="text-xs font-bold text-slate-200 uppercase tracking-wider mb-3 flex items-center gap-2">
+                    <i class="fa-solid fa-certificate text-teal-400"></i> Asal Sertipikat (%)
+                </h3>
+                <div class="relative h-72 w-full">
+                    <canvas id="chartSertipikat"></canvas>
+                </div>
+            </div>
+
+            <!-- Chart 2: Pemanfaatan Lahan -->
+            <div class="glass-card p-5 rounded-2xl border border-slate-800">
+                <h3 class="text-xs font-bold text-slate-200 uppercase tracking-wider mb-3 flex items-center gap-2">
+                    <i class="fa-solid fa-mountain-sun text-emerald-400"></i> Pemanfaatan Lahan (%)
+                </h3>
+                <div class="relative h-72 w-full">
+                    <canvas id="chartPemanfaatan"></canvas>
+                </div>
+            </div>
+
+            <!-- Chart 3: Jenis Usaha -->
+            <div class="glass-card p-5 rounded-2xl border border-slate-800">
+                <h3 class="text-xs font-bold text-slate-200 uppercase tracking-wider mb-3 flex items-center gap-2">
+                    <i class="fa-solid fa-briefcase text-sky-400"></i> Jenis Usaha (%)
+                </h3>
+                <div class="relative h-72 w-full">
+                    <canvas id="chartJenisUsaha"></canvas>
+                </div>
+            </div>
+
+            <!-- Chart Model Pemberdayaan -->
+            <div class="glass-card p-5 rounded-2xl border border-slate-800">
+                <h3 class="text-xs font-bold text-slate-200 uppercase tracking-wider mb-3 flex items-center gap-2">
+                    <i class="fa-solid fa-network-wired text-purple-400"></i> Model Pemberdayaan (%)
+                </h3>
+                <div class="relative h-72 w-full">
+                    <canvas id="chartModelPemberdayaan"></canvas>
+                </div>
+            </div>
+        </section>
+
+        <!-- Analytics Charts Grid 2 -->
+        <section class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <!-- Chart 4: Akses yang Dibutuhkan -->
+            <div class="glass-card p-5 rounded-2xl border border-slate-800">
+                <h3 class="text-xs font-bold text-slate-200 uppercase tracking-wider mb-3 flex items-center gap-2">
+                    <i class="fa-solid fa-hand-holding-hand text-indigo-400"></i> Akses Dibutuhkan (%)
+                </h3>
+                <div class="relative h-72 w-full">
+                    <canvas id="chartAkses"></canvas>
+                </div>
+            </div>
+
+            <!-- Chart 5: Kendala Utama / HKM -->
+            <div class="glass-card p-5 rounded-2xl border border-slate-800">
+                <h3 class="text-xs font-bold text-slate-200 uppercase tracking-wider mb-3 flex items-center gap-2">
+                    <i class="fa-solid fa-circle-exclamation text-pink-400"></i> Kendala Utama (HKM) (%)
+                </h3>
+                <div class="relative h-72 w-full">
+                    <canvas id="chartHkm"></canvas>
+                </div>
+            </div>
+
+            <!-- Chart 6: Klasifikasi Luas Tanah -->
+            <div class="glass-card p-5 rounded-2xl border border-slate-800">
+                <h3 class="text-xs font-bold text-slate-200 uppercase tracking-wider mb-3 flex items-center gap-2">
+                    <i class="fa-solid fa-ruler-combined text-amber-400"></i> Klasifikasi Luas Tanah (%)
+                </h3>
+                <div class="relative h-72 w-full">
+                    <canvas id="chartKelasLuas"></canvas>
+                </div>
+            </div>
+        </section>
+
+        <section class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <!-- Chart 7: Penerima per Wilayah -->
+            <div class="glass-card p-5 rounded-2xl border border-slate-800">
+                <h3 class="text-xs font-bold text-slate-200 uppercase tracking-wider mb-3 flex items-center gap-2">
+                    <i class="fa-solid fa-chart-column text-emerald-400"></i> Sebaran Penerima per Desa / Banjar
+                </h3>
+                <div class="relative h-72 w-full">
+                    <canvas id="chartWilayah"></canvas>
+                </div>
+            </div>
+
+            <!-- Chart 8: Top Komoditas Usaha -->
+            <div class="glass-card p-5 rounded-2xl border border-slate-800">
+                <h3 class="text-xs font-bold text-slate-200 uppercase tracking-wider mb-3 flex items-center gap-2">
+                    <i class="fa-solid fa-wheat-awn text-sky-400"></i> Top Komoditas Usaha
+                </h3>
+                <div class="relative h-72 w-full">
+                    <canvas id="chartKomoditas"></canvas>
+                </div>
+            </div>
+        </section>
+
+        <!-- Data Table Section -->
+        <section class="glass-card rounded-2xl border border-slate-800 overflow-hidden">
+            <div class="p-5 border-b border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-3">
+                <div>
+                    <h3 class="text-xs font-bold text-slate-200 uppercase tracking-wider flex items-center gap-2">
+                        <i class="fa-solid fa-table text-emerald-400"></i> Rincian Data Penerima
+                    </h3>
+                    <p class="text-xs text-slate-400">Daftar terfilter berdasarkan kriteria penyaringan di atas</p>
+                </div>
+                <button onclick="exportToCSV()" class="px-3.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-xs text-slate-200 border border-slate-700 rounded-xl transition flex items-center gap-2 self-start md:self-auto">
+                    <i class="fa-solid fa-download text-emerald-400"></i> Unduh Data Filter (CSV)
+                </button>
+            </div>
+
+            <div class="overflow-x-auto custom-scrollbar">
+                <table class="w-full text-left text-xs border-collapse">
+                    <thead>
+                        <tr class="bg-slate-800/80 text-slate-400 uppercase tracking-wider border-b border-slate-800">
+                            <th class="p-3.5 font-semibold">No</th>
+                            <th class="p-3.5 font-semibold">Kabupaten</th>
+                            <th class="p-3.5 font-semibold">NIK & Nama</th>
+                            <th class="p-3.5 font-semibold">Wilayah (Kec/Desa)</th>
+                            <th class="p-3.5 font-semibold">No SHAT / Skema</th>
+                            <th class="p-3.5 font-semibold">Luas (m²)</th>
+                            <th class="p-3.5 font-semibold">Komoditas / Usaha</th>
+                            <th class="p-3.5 font-semibold">Model Pemberdayaan</th>
+                            <th class="p-3.5 font-semibold">Penghasilan Th 1</th>
+                            <th class="p-3.5 font-semibold">Akses / Pendamping</th>
+                        </tr>
+                    </thead>
+                    <tbody id="dataTableBody" class="divide-y divide-slate-800/50 text-slate-300">
+                        <!-- Dynamic Rows -->
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Table Pagination -->
+            <div class="p-4 border-t border-slate-800 flex items-center justify-between text-xs text-slate-400">
+                <span id="pageInfo">Menampilkan 0 - 0 data</span>
+                <div class="flex items-center gap-2">
+                    <button id="btnPrevPage" onclick="changePage(-1)" class="px-3 py-1 bg-slate-800 hover:bg-slate-700 rounded-lg border border-slate-700 disabled:opacity-50">
+                        <i class="fa-solid fa-chevron-left"></i>
+                    </button>
+                    <span id="currentPageNum" class="font-semibold text-slate-200">1</span>
+                    <button id="btnNextPage" onclick="changePage(1)" class="px-3 py-1 bg-slate-800 hover:bg-slate-700 rounded-lg border border-slate-700 disabled:opacity-50">
+                        <i class="fa-solid fa-chevron-right"></i>
+                    </button>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <script>
+        // URL Web App Google Apps Script Anda
+        const GAS_API_URL = "https://script.google.com/macros/s/AKfycby5f3NBOkwiF74C6BM0WpfnMdzUoujtHyAD1HHMfx8xvHqS6svKsK9jslqgXZ1sUoDjow/exec";
+
+        // Global State Management
+        let rawDataset = [];
+        let filteredDataset = [];
+        let currentPage = 1;
+        const rowsPerPage = 7;
+        
+        // Auto-refresh timer
+        let refreshIntervalTimer = null;
+        let secondsRemaining = 300; // 5 menit
+
+        // Chart Instances
+        let chartWilayahInstance = null;
+        let chartSertipikatInstance = null;
+        let chartPemanfaatanInstance = null;
+        let chartJenisUsahaInstance = null;
+        let chartModelPemberdayaanInstance = null;
+        let chartAksesInstance = null;
+        let chartHkmInstance = null;
+        let chartKelasLuasInstance = null;
+        let chartKomoditasInstance = null;
+
+        // Sample Fallback Dataset (bila API terjadi masalah)
+        const SAMPLE_FALLBACK = [
+            { id: "1", sumberTab: "Tabulasi Badung", nik: "5103010101900001", nama: "I Wayan Sudiarta", kabupaten: "Kabupaten Badung", kecamatan: "Petang", desa: "Pelaga", alamat: "Br. Telanga", nomorShat: "01234", jenisHak: "Hak Milik", tahunShat: 2021, asalSertipikat: "PTSL", luas: 1250, pemanfaatan: "Perkebunan", jenisUsaha: "Pertanian", namaUsaha: "Kopi, Hortikultura", komoditasList: ["Kopi", "Hortikultura"], jenisKub: "KUB Tani Mandiri", hkm: "Modal Usaha", akses: "Kredit Usaha Rakyat (KUR)", modelPemberdayaan: "Pendampingan Usaha", instansi: "Dinas Pertanian", jenisPendampingan: "Pelatihan", namaKegiatan: "Bimtek Organik", penghasilan: 36000000 },
+            { id: "2", sumberTab: "Tabulasi Badung", nik: "5103010101900002", nama: "I Made Rai", kabupaten: "Kabupaten Badung", kecamatan: "Petang", desa: "Pelaga", alamat: "Br. Karang Gadong", nomorShat: "01235", jenisHak: "Hak Milik", tahunShat: 2022, asalSertipikat: "PRONA", luas: 850, pemanfaatan: "Sawah", jenisUsaha: "Pertanian", namaUsaha: "Padi Organik", komoditasList: ["Padi Organik"], jenisKub: "KUB Padi Bersama", hkm: "Pemasaran", akses: "Bantuan Bibit", modelPemberdayaan: "Bantuan Sarana/Prasarana", instansi: "Dinas Pertanian", jenisPendampingan: "Bibit", namaKegiatan: "Penyuluhan", penghasilan: 28000000 }
+        ];
+
+        window.addEventListener('DOMContentLoaded', () => {
+            loadDashboardData(false);
+            startAutoRefreshTimer();
+        });
+
+        async function loadDashboardData(forceRefresh) {
+            const refreshIcon = document.getElementById('refreshIcon');
+            refreshIcon.classList.add('fa-spin');
+            
+            // Jika berjalan di lingkungan Google Apps Script Web App
+            if (typeof google !== 'undefined' && google.script && google.script.run) {
+                google.script.run
+                    .withSuccessHandler(onDataLoaded)
+                    .withFailureHandler(onDataError)
+                    .getDashboardData(forceRefresh);
+            } 
+            // Jika berjalan di Vercel/Hosting Publik (Memakai HTTP Fetch dengan redirect follow)
+            else if (GAS_API_URL && !GAS_API_URL.includes("ISI_DENGAN_URL")) {
+                try {
+                    const fetchUrl = forceRefresh ? `${GAS_API_URL}?forceRefresh=true` : GAS_API_URL;
+                    const response = await fetch(fetchUrl, {
+                        method: 'GET',
+                        redirect: 'follow'
+                    });
+                    
+                    if (!response.ok) {
+                        throw new Error(`HTTP Error Status: ${response.status}`);
+                    }
+                    
+                    const data = await response.json();
+                    onDataLoaded(data);
+                } catch (err) {
+                    console.error("Fetch Error:", err);
+                    // Jika API Google Sheet error/gagal, tampilkan pesan warning lalu muat fallback data
+                    onDataLoaded({
+                        error: false,
+                        timestamp: new Date().toLocaleString('id-ID') + " (Mode Demo / API Error)",
+                        tabsProcessed: ["Tabulasi Badung", "Tabulasi Buleleng", "Tabulasi Gianyar"],
+                        data: SAMPLE_FALLBACK
+                    });
+                }
+            } 
+            // Fallback Data Sampel
+            else {
+                setTimeout(() => {
+                    onDataLoaded({
+                        error: false,
+                        timestamp: new Date().toLocaleString('id-ID'),
+                        tabsProcessed: ["Tabulasi Badung", "Tabulasi Buleleng", "Tabulasi Gianyar"],
+                        data: SAMPLE_FALLBACK
+                    });
+                }, 600);
+            }
+        }
+
+        function onDataLoaded(response) {
+<!-- ... existing code -->
